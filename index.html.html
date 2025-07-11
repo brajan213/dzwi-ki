@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Panel Dźwięków</title>
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      gap: 20px;
+      margin-top: 50px;
+    }
+
+    .button {
+      width: 100px;
+      height: 100px;
+      background-color: yellow;
+      color: black;
+      font-weight: bold;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .settings-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background-color: transparent;
+      border: none;
+      font-size: 28px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .settings {
+      position: fixed;
+      top: 50px;
+      right: 10px;
+      background-color: #222;
+      padding: 10px;
+      border-radius: 8px;
+      display: none;
+      z-index: 100;
+    }
+
+    .settings select,
+    .settings input[type="file"],
+    .settings button {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .settings button {
+      padding: 6px 12px;
+      background-color: yellow;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+    }
+
+    .settings button.remove {
+      background-color: red;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ikona śrubki -->
+  <button class="settings-toggle" onclick="toggleSettings()">⚙️</button>
+
+  <!-- Panel ustawień -->
+  <div class="settings" id="settingsPanel">
+    <label for="soundSelector">Wybierz przycisk:</label>
+    <select id="soundSelector">
+      <option value="dzwiek1">Dźwięk 1</option>
+      <option value="dzwiek2">Dźwięk 2</option>
+      <option value="dzwiek3">Dźwięk 3</option>
+      <option value="dzwiek4">Dźwięk 4</option>
+      <option value="dzwiek5">Dźwięk 5</option>
+      <option value="dzwiek6">Dźwięk 6</option>
+    </select>
+    <input type="file" id="fileInput" accept="audio/*" />
+    <button onclick="saveSound()">Zapisz</button>
+    <button class="remove" onclick="removeSound()">Usuń</button>
+    <button onclick="exportSounds()">Eksportuj</button>
+    <input type="file" id="importInput" accept=".json" style="display:none;" onchange="importSounds(event)" />
+    <button onclick="document.getElementById('importInput').click()">Importuj</button>
+  </div>
+
+  <!-- Przyciski dźwięków -->
+  <div class="grid">
+    <button class="button" id="dzwiek1">Dźwięk 1</button>
+    <button class="button" id="dzwiek2">Dźwięk 2</button>
+    <button class="button" id="dzwiek3">Dźwięk 3</button>
+    <button class="button" id="dzwiek4">Dźwięk 4</button>
+    <button class="button" id="dzwiek5">Dźwięk 5</button>
+    <button class="button" id="dzwiek6">Dźwięk 6</button>
+  </div>
+
+  <script>
+    const soundMap = {};
+
+    // Powiadomienia
+    function showNotification(text) {
+      if (Notification.permission === "granted") {
+        new Notification(text);
+      }
+    }
+
+    // Po załadowaniu strony – załaduj dźwięki z localStorage
+    window.onload = () => {
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+
+      for (let i = 1; i <= 6; i++) {
+        const key = 'dzwiek' + i;
+        const dataUrl = localStorage.getItem(key);
+        if (dataUrl) {
+          const audio = new Audio(dataUrl);
+          setupAudioEvents(audio, key);
+          soundMap[key] = audio;
+        }
+      }
+    };
+
+    function setupAudioEvents(audio, key) {
+      audio.addEventListener('play', () => showNotification('Odtwarzanie: ' + key));
+      audio.addEventListener('ended', () => showNotification('Zakończono: ' + key));
+    }
+
+    // Odtwarzanie dźwięków po kliknięciu przycisku
+    document.querySelectorAll('.button').forEach(button => {
+      button.addEventListener('click', () => {
+        const id = button.id;
+        const audio = soundMap[id];
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play();
+        } else {
+          alert('Brak przypisanego dźwięku.');
+        }
+      });
+    });
+
+    // Zapis dźwięku
+    function saveSound() {
+      const selectedButton = document.getElementById('soundSelector').value;
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+
+      if (!file) {
+        alert('Nie wybrano pliku.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const dataUrl = e.target.result;
+        localStorage.setItem(selectedButton, dataUrl);
+        const audio = new Audio(dataUrl);
+        setupAudioEvents(audio, selectedButton);
+        soundMap[selectedButton] = audio;
+        alert('Dźwięk zapisany dla: ' + selectedButton);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Usuwanie dźwięku
+    function removeSound() {
+      const selectedButton = document.getElementById('soundSelector').value;
+      if (localStorage.getItem(selectedButton)) {
+        localStorage.removeItem(selectedButton);
+        delete soundMap[selectedButton];
+        alert('Dźwięk usunięty dla: ' + selectedButton);
+      } else {
+        alert('Ten przycisk nie ma przypisanego dźwięku.');
+      }
+    }
+
+    // Pokaz/ukryj panel ustawień
+    function toggleSettings() {
+      const panel = document.getElementById('settingsPanel');
+      panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+    }
+
+    // Eksportuj dźwięki do pliku
+    function exportSounds() {
+      const data = {};
+      for (let i = 1; i <= 6; i++) {
+        const key = 'dzwiek' + i;
+        const value = localStorage.getItem(key);
+        if (value) {
+          data[key] = value;
+        }
+      }
+
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dzwieki.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Importuj dźwięki z pliku
+    function importSounds(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          Object.keys(importedData).forEach(key => {
+            localStorage.setItem(key, importedData[key]);
+            const audio = new Audio(importedData[key]);
+            setupAudioEvents(audio, key);
+            soundMap[key] = audio;
+          });
+          alert("Dźwięki zaimportowane pomyślnie!");
+        } catch (err) {
+          alert("Błąd przy imporcie: niepoprawny plik.");
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+
+</body>
+</html>
